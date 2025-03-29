@@ -1,0 +1,108 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: cluster-issuer
+  namespace: cert-manager
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      chart: raw
+      version: "2.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: bedag
+        namespace: flux-repos
+      interval: 5m
+  releaseName: cluster-issuer
+  targetNamespace: cert-manager
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  test:
+    enable: false
+  dependsOn:
+    - kind: HelmRelease
+      name: cert-manager
+      namespace: cert-manager
+    - kind: HelmRelease
+      name: trust-manager
+      namespace: cert-manager
+  values:
+    resources:
+      - apiVersion: cert-manager.io/v1
+        kind: Issuer
+        metadata:
+          name: cluster-issuer
+          namespace: cert-manager
+        spec:
+          selfSigned: {}
+      - apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: cluster-ca
+          namespace: cert-manager
+        spec:
+          isCA: true
+          commonName: cluster-ca
+          subject:
+            organizations:
+              - Cluster CA
+            organizationalUnits:
+              - cert-manager
+          secretName: cluster-ca-secret
+          privateKey:
+            algorithm: ECDSA
+            size: 256
+          issuerRef:
+            name: cluster-issuer
+            kind: Issuer
+            group: cert-manager.io
+      - apiVersion: cert-manager.io/v1
+        kind: ClusterIssuer
+        metadata:
+          name: cluster-ca-issuer
+          namespace: cert-manager
+        spec:
+          ca:
+            secretName: cluster-ca-secret
+      - apiVersion: trust.cert-manager.io/v1alpha1
+        kind: Bundle
+        metadata:
+          name: cluster-trust-bundle # The bundle name will also be used for the target
+          namespace: cert-manager
+        spec:
+          sources:
+            # Include a bundle of publicly trusted certificates which can be
+            # used to validate most TLS certificates on the internet, such as
+            # those issued by Let's Encrypt, Google, Amazon and others.
+            - useDefaultCAs: true
+
+            # A Secret in the "trust" namespace; see "Trust Namespace" below for further details
+            - secret:
+                name: "cluster-ca-secret"
+                key: "ca.crt"
+
+          target:
+            # Sync the bundle to a ConfigMap called `my-org.com` in every namespace which
+            # has the label "linkerd.io/inject=enabled"
+            # All ConfigMaps will include a PEM-formatted bundle, here named "root-certs.pem"
+            # and in this case we also request binary formatted bundles in JKS and PKCS#12 formats,
+            # here named "bundle.jks" and "bundle.p12".
+            configMap:
+              key: "cluster-bundle.pem"
+            additionalFormats:
+              jks:
+                key: "bundle.jks"
+              pkcs12:
+                key: "bundle.p12"
+            namespaceSelector:
+              matchExpressions:
+                - key: namespace
+                  operator: NotIn
+                  values:
+                    - kube-system

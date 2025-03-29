@@ -1,0 +1,66 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: emqttx-web
+  namespace: segateway
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      chart: raw
+      version: "2.0.0"
+      sourceRef:
+        kind: HelmRepository
+        name: bedag
+        namespace: flux-repos
+      interval: 5m
+  releaseName: emqttx-web
+  targetNamespace: segateway
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  test:
+    enable: false
+  dependsOn:
+    - kind: HelmRelease
+      name: emqx
+      namespace: segateway
+  values:
+    resources:
+      - apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: mqttx-deployment
+          labels:
+            app: mqttx
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: mqttx
+          template:
+            metadata:
+              labels:
+                app: mqttx
+            spec:
+              containers:
+                - name: mqttx
+                  image: emqx/mqttx-web:v1.11.1
+                  ports:
+                    - containerPort: 80
+      - apiVersion: v1
+        kind: Service
+        metadata:
+          name: mqttx-service
+          labels:
+            app: mqttx
+        spec:
+          ports:
+            - port: 80
+              targetPort: 80
+          selector:
+            app: mqttx
