@@ -2,15 +2,17 @@
 set -o errexit
 
 cluster_name=us
+reg_name='local-registry'
+reg_port='5050'
+reg_internal_port='5000'
 
 
 # 1. Create registry container unless it already exists
-reg_name='kind-registry'
-reg_port='5001'
+
 if [ "$(podman inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)" != 'true' ]; then
   podman run \
-    -d --restart=always -p "127.0.0.1:${reg_port}:5000" --network bridge --name "${reg_name}" \
-    registry:2
+    -d --restart=always -p "127.0.0.1:${reg_port}:${reg_internal_port}" --name "${reg_name}" \
+    registry:2.8.3
 fi
 
 # 2. Create kind cluster with containerd registry config dir enabled
@@ -27,9 +29,10 @@ cat <<EOF | kind create cluster --name $cluster_name --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 containerdConfigPatches:
+
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry]
-    config_path = "/etc/containerd/certs.d"
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."${reg_name}:${reg_port}"]
+    endpoint = ["http://${reg_name}:${reg_internal_port}"]
 nodes:
 # one node hosting a control plane
 - role: control-plane 
@@ -69,6 +72,14 @@ metadata:
 data:
   localRegistryHosting.v1: |
     host: "localhost:${reg_port}"
+    hostFromContainerRuntime: "${reg_name}:${reg_internal_port}"
+    hostFromClusterNetwork: "${reg_name}:${reg_internal_port}"    
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 
+pushd .kind/bootstrap
+terraform apply -auto-approve \
+    -var universal_syslog_image_tag=latest \
+    -var universal_syslog_chart_tag=latest 
+popd
+kubectl get helmrelease --all-namespaces -w 

@@ -2,7 +2,7 @@ apiVersion: helm.toolkit.fluxcd.io/v2beta2
 kind: HelmRelease
 metadata:
   name: emqx
-  namespace: segateway
+  namespace: universal-syslog
 spec:
   interval: 10m
   timeout: 5m
@@ -16,7 +16,7 @@ spec:
         namespace: flux-repos
       interval: 5m
   releaseName: emqx
-  targetNamespace: segateway
+  targetNamespace: universal-syslog
   install:
     remediation:
       retries: 3

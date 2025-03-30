@@ -1,0 +1,45 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: universal-syslog-default
+  namespace: universal-syslog
+spec:
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      chart: universal-syslog
+      version: ${universal_syslog_chart_tag}
+      sourceRef:
+        kind: HelmRepository
+        name: universal-syslog
+        namespace: flux-repos
+      interval: 5m
+  releaseName: universal-syslog-default
+  targetNamespace: universal-syslog
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  test:
+    enable: false
+  driftDetection:
+    mode: disabled
+    ignore:
+      - paths: ["/spec/replicas"]
+        target:
+          kind: Deployment
+  dependsOn:
+    - kind: HelmRelease
+      name: cert-manager
+      namespace: cert-manager
+    - kind: HelmRelease
+      name: fact-db
+    - kind: HelmRelease
+      name: emqx
+  values:
+    image:
+      repository: local-registry:5050/us/container
+      tag: ${universal_syslog_image_tag}

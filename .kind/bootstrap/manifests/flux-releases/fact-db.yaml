@@ -2,7 +2,7 @@ apiVersion: helm.toolkit.fluxcd.io/v2beta2
 kind: HelmRelease
 metadata:
   name: fact-db
-  namespace: segateway
+  namespace: universal-syslog
 spec:
   interval: 10m
   timeout: 5m
@@ -16,7 +16,7 @@ spec:
         namespace: flux-repos
       interval: 5m
   releaseName: fact-db
-  targetNamespace: segateway
+  targetNamespace: universal-syslog
   install:
     remediation:
       retries: 3
@@ -45,13 +45,13 @@ spec:
 
           managed:
             roles:
-            - name: segateway
+            - name: universal-syslog
               ensure: present
-              comment: segateway
+              comment: universal-syslog
               login: true
               superuser: false
               passwordSecret:
-                name: segateway-fact-db
+                name: universal-syslog-fact-db
           # Backup properties
       - |-
         apiVersion: postgresql.cnpg.io/v1
@@ -61,5 +61,5 @@ spec:
         spec:
           cluster:
             name: fact-db
-          name: segateway
-          owner: segateway
+          name: universal-syslog
+          owner: universal-syslog

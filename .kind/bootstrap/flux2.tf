@@ -80,6 +80,10 @@ resource "time_sleep" "flux2repos" {
 
 data "kubectl_path_documents" "flux2-releases" {
   pattern = "./manifests/flux-releases/*.yaml"
+  vars = {
+    universal_syslog_image_tag = var.universal_syslog_image_tag
+    universal_syslog_chart_tag = var.universal_syslog_chart_tag
+  }
 }
 
 resource "kubectl_manifest" "flux2-releases" {
